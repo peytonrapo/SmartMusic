@@ -3,7 +3,7 @@ import os
 from pygame import mixer
 import time
 
-dataset_path = 'adl-piano-midi'
+dataset_path = 'trimmed-midi'
 genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
 subgenre = genre + '/' + r.choice(os.listdir(genre))
 artist = subgenre + '/' + r.choice(os.listdir(subgenre))
@@ -12,4 +12,4 @@ print(song)
 mixer.init()
 mixer.music.load(song)
 mixer.music.play()
-time.sleep(5)
+time.sleep(10)

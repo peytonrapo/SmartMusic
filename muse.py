@@ -22,7 +22,8 @@ import os
 from pygame import mixer
 import random as r
 import time
-
+import torch
+from torch import nn
 # Handy little enum to make code more readable
 
 
@@ -65,7 +66,7 @@ if __name__ == "__main__":
 
     # Set active EEG stream to inlet and apply time correction
     print("Start acquiring data")
-    inlet = StreamInlet(streams[0], max_chunklen=12)
+    inlet = StreamInlet(streams[0], max_buflen= BUFFER_LENGTH, max_chunklen=12)
     eeg_time_correction = inlet.time_correction()
 
     # Get the stream info and description
@@ -93,19 +94,48 @@ if __name__ == "__main__":
     band_buffer = np.zeros((n_win_test, 4))
 
     """ 3. GET DATA """
-    print("Please enter name: ")
-    name = input()
-    if not os.path.isdir(name):
-        os.mkdir(name)
-    print("Enter session: ")
-    session = input()
+    # Set up
+    # print("Please enter name: ")
+    # name = input()
+    # if not os.path.isdir(name):
+    #     os.mkdir(name)
+    # print("Enter session: ")
+    # session = input()
     # The try/except structure allows to quit the while loop by aborting the
     # script with <Ctrl-C>
     print('Press Ctrl-C in the console to break the while loop.')
     i = 0
-    while True:
+    NUM_EPOCHS = 100
+
+    # Define model
+    class NeuralNetwork(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.flatten = nn.Flatten()
+            self.linear_relu_stack = nn.Sequential(
+                nn.Linear(1*3*32, 512),
+                nn.ReLU(),
+                nn.Linear(512, 512),
+                nn.ReLU(),
+                nn.Linear(512, 1)
+            )
+            self.sigmoid = nn.Sigmoid()
+        def forward(self, x):
+            x = self.flatten(x)
+            logits = self.linear_relu_stack(x)
+            sigmoid = self.sigmoid(logits)
+            return sigmoid
+    # if output == target then loss = 0 else loss = 1
+    def binary_loss(output, target):
+        loss = torch.mean((output - target)**2*1.0)
+        return loss
+    bce = nn.BCELoss()
+    model = NeuralNetwork()
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+    res_buf = []
+    for epoch in range(NUM_EPOCHS):
         # Get song from midi dataset
-        dataset_path = 'adl-piano-midi'
+        dataset_path = 'trimmed-midi'
         genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
         subgenre = genre + '/' + r.choice(os.listdir(genre))
         artist = subgenre + '/' + r.choice(os.listdir(subgenre))
@@ -114,13 +144,12 @@ if __name__ == "__main__":
         mixer.init()
         mixer.music.load(song)
         mixer.music.play()
-        SONG_LENGTH = 5
-        start = time.time()
+        DATA_LENGTH = 32
         data = []
         i += 1
         try:
             # The following loop acquires data, computes band powers, and calculates neurofeedback metrics based on those band powers
-            while time.time() - start < SONG_LENGTH:
+            while len(data) < DATA_LENGTH:
                 """ 3.1 ACQUIRE DATA """
                 # Obtain EEG data from the LSL stream
                 eeg_data, timestamp = inlet.pull_chunk(
@@ -176,17 +205,29 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             print('Closing!')
         mixer.music.stop()
-        data_arr = np.array(data)
-        print("Did you enjoy the song? G,B,N")
+        print("Did you like the song? Y/N")
         val = input()
-        score = 0
-        while(val != 'G' and val != 'B' and val != 'N'):
+        score = [[0.0]]
+        while(val != 'Y' and val != 'N'):
             val = input()
-        if val == 'G':
-            score = 1
-        if val == 'B':
-            score = -1
-        print(score)
-        np.savetxt(name + "/" + str(session) + "-" + str(i) + ".csv", data_arr, delimiter=",")
-        with open(name + "/" + str(session) + "-" + str(i) + "-score.txt", "w") as f:
-            f.write(str(score)) 
+        if val == 'Y':
+            score = [[1.0]]
+        score = torch.tensor(score)
+        model.train()
+        data_tensor = torch.tensor(data, dtype=torch.float)
+        data_tensor = data_tensor[None, :, :]
+        pred = model(data_tensor)
+        print(pred) # Yes = 1, No = 0
+        loss = bce(pred, score)
+        print(loss)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        res_buf.append(loss.item())
+        if len(res_buf) == 10:
+            for j in range(len(res_buf)):
+                res_buf[j] = round(res_buf[j])
+            print(sum(res_buf))
+            res_buf = []
+
+
