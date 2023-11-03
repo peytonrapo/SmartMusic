@@ -173,7 +173,7 @@ if __name__ == "__main__":
                     theta_metric = smooth_band_powers[Band.Theta] / \
                         smooth_band_powers[Band.Alpha]
                     # print('Theta Relaxation: ', theta_metric)
-                    channel_data.extend([alpha_metric, beta_metric, theta_metric])
+                    channel_data.extend([smooth_band_powers[Band.Alpha], smooth_band_powers[Band.Beta], smooth_band_powers[Band.Theta],smooth_band_powers[Band.Delta]])
                 brainwaves_data.append(channel_data)
         except KeyboardInterrupt:
             print('Closing!')
