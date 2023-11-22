@@ -106,7 +106,7 @@ if __name__ == "__main__":
     NUM_EPOCHS = 100
     for epoch in range(NUM_EPOCHS):
         # Get song from midi dataset
-        dataset_path = 'trimmed-midi'
+        dataset_path = 'new-trimmed-midi'
         genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
         subgenre = genre + '/' + r.choice(os.listdir(genre))
         artist = subgenre + '/' + r.choice(os.listdir(subgenre))
