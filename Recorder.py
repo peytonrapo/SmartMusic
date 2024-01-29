@@ -13,86 +13,7 @@ The neurofeedback protocols described here are inspired by
 Adapted from https://github.com/NeuroTechX/bci-workshop
 """
 
-import numpy as np  # Module that simplifies computations on matrices
-import matplotlib.pyplot as plt  # Module used for plotting
-from pylsl import StreamInlet, resolve_byprop  # Module to receive EEG data
-import utils  # Our own utility functions
-import pandas as pd
-
-import os
-from pygame import mixer
-import random as r
-import time
-import torch
-from torch import nn
-# Handy little enum to make code more readable
-
-
-class Band:
-    Delta = 0
-    Theta = 1
-    Alpha = 2
-    Beta = 3
-
-
-""" EXPERIMENTAL PARAMETERS """
-# Modify these to change aspects of the signal processing
-
-# Length of the EEG data buffer (in seconds)
-# This buffer will hold last n seconds of data and be used for calculations
-BUFFER_LENGTH = 5
-
-# Length of the epochs used to compute the FFT (in seconds)
-EPOCH_LENGTH = 1
-
-# Amount of overlap between two consecutive epochs (in seconds)
-OVERLAP_LENGTH = 0.0
-
-# Amount to 'shift' the start of each next consecutive epoch
-SHIFT_LENGTH = EPOCH_LENGTH - OVERLAP_LENGTH
-
-# Index of the channel(s) (electrodes) to be used
-# 0 = left ear, 1 = left forehead, 2 = right forehead, 3 = right ear
-NUM_CHANNELS = 4
-
 if __name__ == "__main__":
-
-    """ 1. CONNECT TO EEG STREAM """
-
-    # Search for active LSL streams
-    print('Looking for an EEG stream...')
-    streams = resolve_byprop('type', 'EEG', timeout=2)
-    if len(streams) == 0:
-        raise RuntimeError('Can\'t find EEG stream.')
-
-    # Set active EEG stream to inlet and apply time correction
-    print("Start acquiring data")
-    inlet = StreamInlet(streams[0], max_buflen= BUFFER_LENGTH, max_chunklen=1)
-    eeg_time_correction = inlet.time_correction()
-
-    # Get the stream info and description
-    info = inlet.info()
-    description = info.desc()
-
-    # Get the sampling frequency
-    # This is an important value that represents how many EEG data points are
-    # collected in a second. This influences our frequency band calculation.
-    # for the Muse 2016, this should always be 256
-    fs = int(info.nominal_srate())
-
-    """ 2. INITIALIZE BUFFERS """
-
-    # Initialize raw EEG data buffer
-    eeg_buffer = np.zeros((int(fs * BUFFER_LENGTH), 1))
-    filter_state = None  # for use with the notch filter
-
-    # Compute the number of epochs in "buffer_length"
-    n_win_test = int(np.floor((BUFFER_LENGTH - EPOCH_LENGTH) /
-                              SHIFT_LENGTH + 1))
-
-    # Initialize the band power buffer (for plotting)
-    # bands will be ordered: [delta, theta, alpha, beta]
-    band_buffer = np.zeros((n_win_test, 4))
 
     """ 3. GET DATA """
     # Set up
@@ -194,4 +115,99 @@ if __name__ == "__main__":
         df.to_csv(name + '/' + 'name2score.csv', mode='a', index=False, header=False)
 
 
+# Skeleton code
+# Util functions for data recorder should probably in the utils file
+# Constructor:
+    # Connect to EEG
+    # Initialize buffers to record data
+# Record data:
+    # clear buffers
+    # Play random song from song directory
+    # query EEG buffer
+    # return data for song
+        # maybe timestamp the data? depends on how bad it is
+# In terms of getting data for training that should probably be a different function that creates a recorder object
+
+
+import numpy as np  # Module that simplifies computations on matrices
+import matplotlib.pyplot as plt  # Module used for plotting
+from pylsl import StreamInlet, resolve_byprop  # Module to receive EEG data
+import utils  # Our own utility functions
+import pandas as pd
+
+import os
+from pygame import mixer
+import random as r
+import time
+import torch
+from torch import nn
+# Handy little enum to make code more readable
+
+
+class Band:
+    Delta = 0
+    Theta = 1
+    Alpha = 2
+    Beta = 3
+
+class Recorder:
+    def __init__(self, bufferLength = 5, epochLength = 1, overlapLength = 0.0, numChannels = 4):
+        """ EXPERIMENTAL PARAMETERS """
+        # Modify these to change aspects of the signal processing
+        # can make these into constructor
+
+        # Length of the EEG data buffer (in seconds)
+        # This buffer will hold last n seconds of data and be used for calculations
+        self.BUFFER_LENGTH = bufferLength
+
+        # Length of the epochs used to compute the FFT (in seconds)
+        self.EPOCH_LENGTH = epochLength
+
+        # Amount of overlap between two consecutive epochs (in seconds)
+        self.OVERLAP_LENGTH = overlapLength
+
+        # Amount to 'shift' the start of each next consecutive epoch
+        self.SHIFT_LENGTH = self.EPOCH_LENGTH - self.OVERLAP_LENGTH
+
+        # Index of the channel(s) (electrodes) to be used
+        # 0 = left ear, 1 = left forehead, 2 = right forehead, 3 = right ear
+        self.NUM_CHANNELS = numChannels
+
+    def connect(self):
+         # Search for active LSL streams
+        print('Looking for an EEG stream...')
+        streams = resolve_byprop('type', 'EEG', timeout=2)
+        if len(streams) == 0:
+            raise RuntimeError('Can\'t find EEG stream.')
+
+        # Set active EEG stream to inlet and apply time correction
+        print("Start acquiring data")
+        inlet = StreamInlet(streams[0], max_buflen= BUFFER_LENGTH, max_chunklen=1)
+        eeg_time_correction = inlet.time_correction()
+
+        # Get the stream info and description
+        info = inlet.info()
+        description = info.desc()
+
+        # Get the sampling frequency
+        # This is an important value that represents how many EEG data points are
+        # collected in a second. This influences our frequency band calculation.
+        # for the Muse 2016, this should always be 256
+        fs = int(info.nominal_srate())
+        self.inlet = inlet
+
+        # Initialize raw EEG data buffer
+        self.eeg_buffer = np.zeros((int(fs * self.BUFFER_LENGTH), 1))
+        self.filter_state = None  # for use with the notch filter
+
+        # Compute the number of epochs in "buffer_length"
+        n_win_test = int(np.floor((self.BUFFER_LENGTH - self.EPOCH_LENGTH) /
+                                self.SHIFT_LENGTH + 1))
+
+        # Initialize the band power buffer (for plotting)
+        # bands will be ordered: [delta, theta, alpha, beta]
+        self.band_buffer = np.zeros((n_win_test, 4))
+
+    def getData():
+        pass
 
