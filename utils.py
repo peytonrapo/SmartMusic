@@ -9,6 +9,7 @@ epoching, and transforming EEG data into frequency bands
 """
 
 import os
+import random
 import sys
 from tempfile import gettempdir
 from subprocess import call
@@ -184,3 +185,22 @@ def get_last_data(data_buffer, newest_samples):
     new_buffer = data_buffer[(data_buffer.shape[0] - newest_samples):, :]
 
     return new_buffer
+
+def get_random_file(dir):
+    """
+    Selects a random file given a directory, which may contain any number
+    of subdirectories.
+    
+    :dir:  str, directory filepath
+    """
+    all_files = []
+    for foldername, subfolders, filenames in os.walk(dir):
+        for filename in filenames:
+            all_files.append(os.path.join(foldername, filename))
+
+    if not all_files:
+        print("No files found.")
+        return None
+
+    random_file = random.choice(all_files)
+    return random_file
