@@ -204,3 +204,48 @@ def get_random_file(dir):
 
     random_file = random.choice(all_files)
     return random_file
+
+class Recorder:
+    def __init__(self, recording_queue, generation_queue):
+        self.recording_queue = recording_queue
+        self.generation_queue = generation_queue
+        self.current_song = 1
+
+    def start(self):
+        while True:
+            song = self.recording_queue.get()
+            #play(song)
+            print(f"Song {self.current_song} is playing")
+            time.sleep(2) # Simulate recording data with sleep
+
+            recorded_data =  f"Recorded_data for Song {self.current_song}"
+            print(f"Song {self.current_song} is recorded")
+
+            self.generation_queue.put(recorded_data)
+            self.current_song += 1
+
+    def get_current_song(self):
+        return self.current_song
+
+
+class Generator:
+    def __init__(self, recording_queue, generation_queue):
+        self.recording_queue = recording_queue
+        self.generation_queue = generation_queue
+        self.current_song = 1
+
+    def start(self):
+        while True:
+            recorded_data = self.generation_queue.get()
+            # classified = classify(recorded_data)
+            time.sleep(2) # Simulate classifying data with sleep
+            print(f"Song {self.current_song} is classified")
+
+            # gen_song = generate_song(classified)
+            time.sleep(2) # Simulate generation time
+            print(f"Song {self.current_song + 2} is generated")
+            gen_song = f"Song {self.current_song + 2}"
+
+            # Send to recorder
+            self.recording_queue.put(gen_song)
+            self.current_song += 1
