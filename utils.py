@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import svm
 from scipy.signal import butter, lfilter, lfilter_zi
+import time
 
 
 NOTCH_B, NOTCH_A = butter(4, np.array([55, 65]) / (256 / 2), btype='bandstop')
@@ -186,7 +187,7 @@ def get_last_data(data_buffer, newest_samples):
 
     return new_buffer
 
-def get_random_file(dir):
+def get_random_file(dir, unwanted_file=None):
     """
     Selects a random file given a directory, which may contain any number
     of subdirectories.
@@ -201,9 +202,11 @@ def get_random_file(dir):
     if not all_files:
         print("No files found.")
         return None
-
-    random_file = random.choice(all_files)
-    return random_file
+    
+    while True:
+        random_file = random.choice(all_files)
+        if random_file != (unwanted_file):    
+            return random_file
 
 class Recorder:
     def __init__(self, recording_queue, generation_queue):

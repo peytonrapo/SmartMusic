@@ -4,8 +4,7 @@ import optuna
 
 def objective(trial):
     lr = trial.suggest_float('learning_rate', 1e-5, 0.1)
-
-model = SomeModel(learning_rate = lr)
+    model = SomeModel(learning_rate = lr)
 
 study = optuna.create_study(direction='minimize')
 

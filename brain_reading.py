@@ -1,7 +1,7 @@
 # IMPORT
 # imports from utils.py, etc.
 import threading
-from utils import get_random_file
+from utils import get_random_file, Recorder, Generator
 
 # SET MACROS
 # ex: index_channels for recording, buffer_size.
