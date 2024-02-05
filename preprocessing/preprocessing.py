@@ -5,16 +5,15 @@ import pylab
 import csv
 from scipy.signal import butter, sosfilt
 
-#set up the folder's path and pick the file to test
-g_directory = "/Users/rubylee/SmartMusic-1/Ichi"
+# Set up the folder's path and pick the file to test
+g_directory = "Ichi"
 g_testingFile = "1698979544.csv"
-
-g_lowcut = 0.5 #hz
-g_highcut = 70 #hz
+g_lowcut = 0.5  # hz
+g_highcut = 70  # hz
 g_order = 5
 
-# csv_to_array: convert the csv to a timestamp array and a list containing 16 arrays
 def csv_to_array(csv_reader):
+    # Your existing code for csv_to_array
     line_count = 0
     brainwaves= [[]]*16
     timepoints= [] * 10
@@ -28,7 +27,6 @@ def csv_to_array(csv_reader):
             line_count += 1
     return brainwaves, timepoints
 
-# plot_graph: draw the graph with 16 lines representing different channel/brain-waves combinations
 def plot_graph(brainwavesData, timestamps):
     fig, ax = plt.subplots(16,1,figsize=(20,40))
     for x in range(16):
@@ -40,14 +38,11 @@ def plot_graph(brainwavesData, timestamps):
     plt.title('eeg data')
     plt.show()
 
-# sci_to_int: convert scientific notation string to int
 def sci_to_int(sci):
     number_as_float = float(sci)
-    return "{:.2f}".format(number_as_float)    
+    return "{:.2f}".format(number_as_float)  
 
-# volts_to_freq: covert the graph from time domain to frequency domain using discrete 
-#             fourier transform the command numpy.fft.fft(SIGNAL)
-def volts_to_freq(brainwavesData):   
+def volts_to_freq(brainwavesData):
     blockSize = 10 #length of the signal
     timeInterval = 1
     samplingRate = 1/timeInterval
@@ -73,13 +68,12 @@ def volts_to_freq(brainwavesData):
 
     return freqdata
 
-#filtering: using butterworth to filter out the noises in the raw data
 def filtering(freqdata):
     filteredData = [[]]*16
 
     for i in range (16):
         freq = freqdata[i]
-        nyquistFreq = 
+        nyquistFreq = 100
         low = g_lowcut / nyquistFreq
         high = g_highcut / nyquistFreq
         sos = butter(g_order, [low,high], btype = "bandpass", output='sos')
@@ -87,7 +81,7 @@ def filtering(freqdata):
         filteredData[i] = filtered
     return filteredData
 
-#plotting the filtered data
+
 def plot_filtered_data(filteredData):
     blockSize = 10
     for i in range(16):
@@ -96,29 +90,45 @@ def plot_filtered_data(filteredData):
         Y = Y[range(int(blockSize/2))]
         plt.plot(filtered, abs(Y),'r')
 
-# - - - - - - - - - - - - - - - - - main - - - - - - - - - - - - - - - - - - - - 
-# iterate through the csv file folder and drawing seperate graphs for each file
-for filename in os.listdir(g_directory):
+def array_to_csv(output_file, brainwaves, timepoints):
+    def array_to_csv(output_file, brainwaves, timepoints):
+    with open(output_file, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
 
-    f = os.path.join(g_directory, filename)
-    if filename=="name2score.csv": #skip the name2score file
-        continue
+        # Write the header (timepoints)
+        csv_writer.writerow(timepoints)
 
-    # checking if it is a file
-    if os.path.isfile(f):
-        if filename==g_testingFile: #just 1 file for testing for now
-            print("current filepath: "+f)
-            with open(f) as csv_file:
+        # Write the data (brainwaves)
+        for i in range(len(brainwaves[0])):
+            row_data = [brainwaves[x][i] for x in range(16)]
+            csv_writer.writerow(row_data)
 
-                #plotting the raw data (voltage)
-                csv_reader = csv.reader(csv_file, delimiter=',')
-                brainwavesData, timepoints = csv_to_array(csv_reader) 
-                plot_graph(brainwavesData, timepoints) 
+def main():
+    # Iterate through the CSV file folder and draw separate graphs for each file
+    for filename in os.listdir(g_directory):
+        f = os.path.join(g_directory, filename)
 
-                #convert the data from voltage to frequency + plotting the graph
-                freqdata = volts_to_freq(brainwavesData)
+        if filename == "name2score.csv":  # Skip the name2score file
+            continue
 
-                #filter the frequency data
-                filtereddata = filtering(freqdata)
+        # Checking if it is the file we are testing
+        if os.path.isfile(f):
+            if filename == g_testingFile:  # Just one file for testing for now
+                print("Current filepath: " + f)
+                with open(f) as csv_file:
+                    # Plotting the raw data (voltage)
+                    csv_reader = csv.reader(csv_file, delimiter=',')
+                    brainwavesData, timepoints = csv_to_array(csv_reader)
+                    plot_graph(brainwavesData, timepoints)
+
+                    # Convert the data from voltage to frequency + plotting the graph
+                    freqdata = volts_to_freq(brainwavesData)
+
+                    # Filter the frequency data
+                    filtereddata = filtering(freqdata)
+                    plot_filtered_data(filtereddata)
 
 
+
+if __name__ == "__main__":
+    main()
