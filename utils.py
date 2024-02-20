@@ -205,12 +205,14 @@ def get_random_file(dir):
     random_file = random.choice(all_files)
     return random_file
 
+# Plays songs, records brain data, and sends to generator
 class Recorder:
     def __init__(self, recording_queue, generation_queue):
         self.recording_queue = recording_queue
         self.generation_queue = generation_queue
         self.current_song = 1
 
+    # Plays songs, records brain data, and sends to generator
     def start(self):
         while True:
             song = self.recording_queue.get()
@@ -221,7 +223,9 @@ class Recorder:
             recorded_data =  f"Recorded_data for Song {self.current_song}"
             print(f"Song {self.current_song} is recorded")
 
-            self.generation_queue.put(recorded_data)
+            cleaned_recording = build_input_tensor(recorded_data)  # clean data (function doesn't exist yet)
+
+            self.generation_queue.put((cleaned_recording, song))
             self.current_song += 1
 
     def get_current_song(self):
@@ -229,23 +233,32 @@ class Recorder:
 
 
 class Generator:
-    def __init__(self, recording_queue, generation_queue):
+    def __init__(self, recording_queue, generation_queue, calibrate = False):
         self.recording_queue = recording_queue
         self.generation_queue = generation_queue
+        self.calibrate = calibrate
         self.current_song = 1
+        self.current_prediction = 1 # 1 = liked, 0 = disliked
 
     def start(self):
         while True:
-            recorded_data = self.generation_queue.get()
-            # classified = classify(recorded_data)
+            # Get song and brain data to classify song
+            recorded_data, prev_song = self.generation_queue.get()
+            # self.current_prediction = classify(recorded_data) # did user like or not
             time.sleep(2) # Simulate classifying data with sleep
             print(f"Song {self.current_song} is classified")
 
-            # gen_song = generate_song(classified)
-            time.sleep(2) # Simulate generation time
-            print(f"Song {self.current_song + 2} is generated")
-            gen_song = f"Song {self.current_song + 2}"
+            # generate a song if not in calibration mode
+            if not self.calibrate:
+                # gen_song = generate_song(liked, prev_song)
+                time.sleep(2) # Simulate generation time
+                print(f"Song {self.current_song + 2} is generated")
+                gen_song = f"Song {self.current_song + 2}"
 
-            # Send to recorder
-            self.recording_queue.put(gen_song)
-            self.current_song += 1
+                # Send to recorder
+                self.recording_queue.put(gen_song)
+                self.current_song += 1
+    
+    # Get function for the current prediction
+    def get_prediction(self):
+        return self.current_prediction
