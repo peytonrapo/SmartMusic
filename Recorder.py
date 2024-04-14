@@ -13,106 +13,93 @@ The neurofeedback protocols described here are inspired by
 Adapted from https://github.com/NeuroTechX/bci-workshop
 """
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    """ 3. GET DATA """
-    # Set up
-    print("Please enter name: ")
-    name = input()
-    if not os.path.isdir(name):
-        os.mkdir(name)
-    # The try/except structure allows to quit the while loop by aborting the
-    # script with <Ctrl-C>
-    print('Press Ctrl-C in the console to break the while loop.')
-    NUM_EPOCHS = 100
-    for epoch in range(NUM_EPOCHS):
-        # Get song from midi dataset
-        dataset_path = 'new-trimmed-midi'
-        genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
-        subgenre = genre + '/' + r.choice(os.listdir(genre))
-        artist = subgenre + '/' + r.choice(os.listdir(subgenre))
-        song = artist + '/' + r.choice(os.listdir(artist))
+#     """ 3. GET DATA """
+#     # The try/except structure allows to quit the while loop by aborting the
+#     # script with <Ctrl-C>
+#     print('Press Ctrl-C in the console to break the while loop.')
+#     NUM_EPOCHS = 100
+#     for epoch in range(NUM_EPOCHS):
 
-        mixer.init()
-        mixer.music.load(song)
-        mixer.music.play()
-        DATA_LENGTH = 10
-        filename = str(round(time.time())) + '.csv'
-        brainwaves_data = []
-        try:
-            # The following loop acquires data, computes band powers, and calculates neurofeedback metrics based on those band powers
-            while len(brainwaves_data) < DATA_LENGTH:
-                """ 3.1 ACQUIRE DATA """
-                # Obtain EEG data from the LSL stream
-                eeg_data, timestamp = inlet.pull_chunk(
-                    timeout=1, max_samples=int(SHIFT_LENGTH * fs))
-                channel_data = []
-                for INDEX_CHANNEL in range(NUM_CHANNELS):
-                    # Only keep the channel we're interested in
-                    ch_data = np.array(eeg_data)[:, INDEX_CHANNEL]
 
-                    # Update EEG buffer with the new data
-                    eeg_buffer, filter_state = utils.update_buffer(
-                        eeg_buffer, ch_data, notch=True,
-                        filter_state=filter_state)
+#         DATA_LENGTH = 10
+#         filename = str(round(time.time())) + '.csv'
+#         brainwaves_data = []
+#         try:
+#             # The following loop acquires data, computes band powers, and calculates neurofeedback metrics based on those band powers
+#             while len(brainwaves_data) < DATA_LENGTH:
+#                 """ 3.1 ACQUIRE DATA """
+#                 # Obtain EEG data from the LSL stream
+#                 eeg_data, timestamp = inlet.pull_chunk(
+#                     timeout=1, max_samples=int(SHIFT_LENGTH * fs))
+#                 channel_data = []
+#                 for INDEX_CHANNEL in range(NUM_CHANNELS):
+#                     # Only keep the channel we're interested in
+#                     ch_data = np.array(eeg_data)[:, INDEX_CHANNEL]
 
-                    """ 3.2 COMPUTE BAND POWERS """
-                    # Get newest samples from the buffer
-                    data_epoch = utils.get_last_data(eeg_buffer,
-                                                    EPOCH_LENGTH * fs)
+#                     # Update EEG buffer with the new data
+#                     eeg_buffer, filter_state = utils.update_buffer(
+#                         eeg_buffer, ch_data, notch=True,
+#                         filter_state=filter_state)
 
-                    # Compute band powers
-                    band_powers = utils.compute_band_powers(data_epoch, fs)
-                    band_buffer, _ = utils.update_buffer(band_buffer,
-                                                        np.asarray([band_powers]))
-                    # Compute the average band powers for all epochs in buffer
-                    # This helps to smooth out noise
-                    smooth_band_powers = np.mean(band_buffer, axis=0)
+#                     """ 3.2 COMPUTE BAND POWERS """
+#                     # Get newest samples from the buffer
+#                     data_epoch = utils.get_last_data(eeg_buffer,
+#                                                     EPOCH_LENGTH * fs)
 
-                    # print('Delta: ', band_powers[Band.Delta], ' Theta: ', band_powers[Band.Theta],
-                    #       ' Alpha: ', band_powers[Band.Alpha], ' Beta: ', band_powers[Band.Beta])
+#                     # Compute band powers
+#                     band_powers = utils.compute_band_powers(data_epoch, fs)
+#                     band_buffer, _ = utils.update_buffer(band_buffer,
+#                                                         np.asarray([band_powers]))
+#                     # Compute the average band powers for all epochs in buffer
+#                     # This helps to smooth out noise
+#                     smooth_band_powers = np.mean(band_buffer, axis=0)
 
-                    """ 3.3 COMPUTE NEUROFEEDBACK METRICS """
-                    # These metrics could also be used to drive brain-computer interfaces
+#                     # print('Delta: ', band_powers[Band.Delta], ' Theta: ', band_powers[Band.Theta],
+#                     #       ' Alpha: ', band_powers[Band.Alpha], ' Beta: ', band_powers[Band.Beta])
 
-                    # Alpha Protocol:
-                    # Simple redout of alpha power, divided by delta waves in order to rule out noise
-                    alpha_metric = smooth_band_powers[Band.Alpha] / \
-                        smooth_band_powers[Band.Delta]
-                    # print('Alpha Relaxation: ', alpha_metric)
+#                     """ 3.3 COMPUTE NEUROFEEDBACK METRICS """
+#                     # These metrics could also be used to drive brain-computer interfaces
 
-                    # Beta Protocol:
-                    # Beta waves have been used as a measure of mental activity and concentration
-                    # This beta over theta ratio is commonly used as neurofeedback for ADHD
-                    beta_metric = smooth_band_powers[Band.Beta] / \
-                        smooth_band_powers[Band.Theta]
-                    # print('Beta Concentration: ', beta_metric)
+#                     # Alpha Protocol:
+#                     # Simple redout of alpha power, divided by delta waves in order to rule out noise
+#                     alpha_metric = smooth_band_powers[Band.Alpha] / \
+#                         smooth_band_powers[Band.Delta]
+#                     # print('Alpha Relaxation: ', alpha_metric)
 
-                    # Alpha/Theta Protocol:
-                    # This is another popular neurofeedback metric for stress reduction
-                    # Higher theta over alpha is supposedly associated with reduced anxiety
-                    theta_metric = smooth_band_powers[Band.Theta] / \
-                        smooth_band_powers[Band.Alpha]
-                    # print('Theta Relaxation: ', theta_metric)
-                    channel_data.extend([smooth_band_powers[Band.Alpha], smooth_band_powers[Band.Beta], smooth_band_powers[Band.Theta],smooth_band_powers[Band.Delta]])
-                brainwaves_data.append(channel_data)
-        except KeyboardInterrupt:
-            print('Closing!')
-        np.savetxt(name + '/' + filename, brainwaves_data, delimiter=',')
-        mixer.music.stop()
-        print("Did you like the song? Y/N")
-        val = input()
-        score = 0.0
-        while(val != 'Y' and val != 'N'):
-            val = input()
-        if val == 'Y':
-            score = 1.0
-        admin_data = {
-            "filename":filename,
-            "score":score
-        }
-        df = pd.DataFrame(admin_data, index=[0])
-        df.to_csv(name + '/' + 'name2score.csv', mode='a', index=False, header=False)
+#                     # Beta Protocol:
+#                     # Beta waves have been used as a measure of mental activity and concentration
+#                     # This beta over theta ratio is commonly used as neurofeedback for ADHD
+#                     beta_metric = smooth_band_powers[Band.Beta] / \
+#                         smooth_band_powers[Band.Theta]
+#                     # print('Beta Concentration: ', beta_metric)
+
+#                     # Alpha/Theta Protocol:
+#                     # This is another popular neurofeedback metric for stress reduction
+#                     # Higher theta over alpha is supposedly associated with reduced anxiety
+#                     theta_metric = smooth_band_powers[Band.Theta] / \
+#                         smooth_band_powers[Band.Alpha]
+#                     # print('Theta Relaxation: ', theta_metric)
+#                     channel_data.extend([smooth_band_powers[Band.Alpha], smooth_band_powers[Band.Beta], smooth_band_powers[Band.Theta],smooth_band_powers[Band.Delta]])
+#                 brainwaves_data.append(channel_data)
+#         except KeyboardInterrupt:
+#             print('Closing!')
+#         np.savetxt(name + '/' + filename, brainwaves_data, delimiter=',')
+#         mixer.music.stop()
+#         print("Did you like the song? Y/N")
+#         val = input()
+#         score = 0.0
+#         while(val != 'Y' and val != 'N'):
+#             val = input()
+#         if val == 'Y':
+#             score = 1.0
+#         admin_data = {
+#             "filename":filename,
+#             "score":score
+#         }
+#         df = pd.DataFrame(admin_data, index=[0])
+#         df.to_csv(name + '/' + 'name2score.csv', mode='a', index=False, header=False)
 
 
 # Skeleton code
@@ -151,7 +138,7 @@ class Band:
     Beta = 3
 
 class Recorder:
-    def __init__(self, bufferLength = 5, epochLength = 1, overlapLength = 0.0, numChannels = 4):
+    def __init__(self, bufferLength = 15, epochLength = 15, overlapLength = 0.0, numChannels = 4):
         """ EXPERIMENTAL PARAMETERS """
         # Modify these to change aspects of the signal processing
         # can make these into constructor
@@ -182,7 +169,7 @@ class Recorder:
 
         # Set active EEG stream to inlet and apply time correction
         print("Start acquiring data")
-        inlet = StreamInlet(streams[0], max_buflen= BUFFER_LENGTH, max_chunklen=1)
+        inlet = StreamInlet(streams[0], max_buflen= self.BUFFER_LENGTH, max_chunklen=1)
         eeg_time_correction = inlet.time_correction()
 
         # Get the stream info and description
@@ -193,7 +180,7 @@ class Recorder:
         # This is an important value that represents how many EEG data points are
         # collected in a second. This influences our frequency band calculation.
         # for the Muse 2016, this should always be 256
-        fs = int(info.nominal_srate())
+        self.fs = int(info.nominal_srate())
         self.inlet = inlet
 
         # Initialize raw EEG data buffer
@@ -208,6 +195,85 @@ class Recorder:
         # bands will be ordered: [delta, theta, alpha, beta]
         self.band_buffer = np.zeros((n_win_test, 4))
 
-    def getData():
-        pass
+    def setUser(self):
+        print("Please enter name: ")
+        self.name = input()
+        if not os.path.isdir(self.name):
+            os.mkdir(self.name)
+
+    def getData(self):
+        # clear buffers
+        # Play random song from song directory
+        # query EEG buffer
+        # return data for song
+        # maybe timestamp the data? depends on how bad it is
+
+        # Get song from midi dataset
+        dataset_path = 'new-trimmed-midi'
+        genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
+        subgenre = genre + '/' + r.choice(os.listdir(genre))
+        artist = subgenre + '/' + r.choice(os.listdir(subgenre))
+        song = artist + '/' + r.choice(os.listdir(artist))
+
+        # play song
+        mixer.init()
+        mixer.music.load(song)
+        mixer.music.play()
+        filename = str(round(time.time())) + '.csv'
+
+        brainwaves_data = []
+        eeg_data, timestamp = self.inlet.pull_chunk(
+                    timeout=15, max_samples=int(self.SHIFT_LENGTH * self.fs))
+        print(len(eeg_data))
+        # channel_data = []
+        # for INDEX_CHANNEL in range(self.NUM_CHANNELS):
+        #     # Only keep the channel we're interested in
+        #     ch_data = np.array(eeg_data)[:, INDEX_CHANNEL]
+
+        #     # Update EEG buffer with the new data
+        #     eeg_buffer, filter_state = utils.update_buffer(
+        #         eeg_buffer, ch_data, notch=True,
+        #         filter_state=filter_state)
+
+        #     # Get newest samples from the buffer
+        #     data_epoch = utils.get_last_data(eeg_buffer,
+        #                                     EPOCH_LENGTH * fs)
+
+        #     # Compute band powers
+        #     band_powers = utils.compute_band_powers(data_epoch, fs)
+        #     band_buffer, _ = utils.update_buffer(band_buffer,
+        #                                         np.asarray([band_powers]))
+        #     # Compute the average band powers for all epochs in buffer
+        #     # This helps to smooth out noise
+        #     smooth_band_powers = np.mean(band_buffer, axis=0)
+
+        #     # print('Delta: ', band_powers[Band.Delta], ' Theta: ', band_powers[Band.Theta],
+        #     #       ' Alpha: ', band_powers[Band.Alpha], ' Beta: ', band_powers[Band.Beta])
+
+        #     """ 3.3 COMPUTE NEUROFEEDBACK METRICS """
+        #     # These metrics could also be used to drive brain-computer interfaces
+
+        #     # Alpha Protocol:
+        #     # Simple redout of alpha power, divided by delta waves in order to rule out noise
+        #     alpha_metric = smooth_band_powers[Band.Alpha] / \
+        #         smooth_band_powers[Band.Delta]
+        #     # print('Alpha Relaxation: ', alpha_metric)
+
+        #     # Beta Protocol:
+        #     # Beta waves have been used as a measure of mental activity and concentration
+        #     # This beta over theta ratio is commonly used as neurofeedback for ADHD
+        #     beta_metric = smooth_band_powers[Band.Beta] / \
+        #         smooth_band_powers[Band.Theta]
+        #     # print('Beta Concentration: ', beta_metric)
+
+        #     # Alpha/Theta Protocol:
+        #     # This is another popular neurofeedback metric for stress reduction
+        #     # Higher theta over alpha is supposedly associated with reduced anxiety
+        #     theta_metric = smooth_band_powers[Band.Theta] / \
+        #         smooth_band_powers[Band.Alpha]
+        #     # print('Theta Relaxation: ', theta_metric)
+        #     channel_data.extend([smooth_band_powers[Band.Alpha], smooth_band_powers[Band.Beta], smooth_band_powers[Band.Theta],smooth_band_powers[Band.Delta]])
+        # brainwaves_data.append(channel_data)
+
+
 

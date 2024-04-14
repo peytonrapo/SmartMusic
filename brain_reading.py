@@ -1,9 +1,7 @@
-# data recorder is its own class - recorder.connect
-
 # IMPORT
 # imports from utils.py, etc.
 import threading
-from utils import get_random_file
+from utils import get_random_file, Recorder, Generator
 
 # SET MACROS
 # ex: index_channels for recording, buffer_size.
@@ -71,6 +69,7 @@ while True:
     recorded_data = record_thread.join()  # get data from recording
     
     prediction = classifier.predict(recorded_data)
+    print("Prediction: {prediction}")
     pred_total += prediction
     
     if pred_total > 4:

@@ -1,138 +1,102 @@
-import numpy as np
-import os
-import matplotlib.pyplot as plt
-import pylab
+import argparse
+import time
 import csv
-from scipy.signal import butter, sosfilt
 
-# Set up the folder's path and pick the file to test
-g_directory = "Ichi"
-g_testingFile = "1698979544.csv"
-g_lowcut = 0.5  # hz
-g_highcut = 70  # hz
-g_order = 5
-g_times = 10
+import matplotlib
+import numpy as np
+import pandas as pd
 
-def csv_to_array(csv_reader):
-    # Your existing code for csv_to_array
-    line_count = 0
-    brainwaves= [[]] * 16
-    timepoints= [] * g_times
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
-    for row in csv_reader:
-            timepoints.append(line_count) 
-            for x in range(16):
-                brainwave = brainwaves[x].copy()
-                brainwave.append(sci_to_int(row[x]))
-                brainwaves[x]=brainwave
-            line_count += 1
-    return brainwaves, timepoints
-
-def plot_graph(brainwavesData, timestamps):
-    fig, ax = plt.subplots(16,1,figsize=(20,40))
-    for x in range(16):
-        # print(brainwavesData[x])
-        ax[x].plot(timestamps, brainwavesData[x], label="waves "+str(x+1))
-
-    plt.xlabel('time(s)')
-    plt.ylabel('voltage')
-    plt.title('eeg data')
-    plt.show()
-
-def sci_to_int(sci):
-    number_as_float = float(sci)
-    return "{:.2f}".format(number_as_float)  
-
-def volts_to_freq(brainwavesData):
-    blockSize = 10 #length of the signal
-    timeInterval = 1
-    samplingRate = 1/timeInterval
-    frameSize = blockSize * timeInterval
-
-    freqdata = [[]]*16
-    index = 0
-
-    for brainwave in brainwavesData:
-        freq = np.arange(blockSize)/samplingRate
-        freq = freq[range(int(blockSize/2))]
-        SL = blockSize/2
-        freqResol = freq/SL
-
-        data = brainwave
-        Y = np.fft.fft(data)/blockSize
-        Y = Y[range(int(blockSize/2))]
-
-        freqdata[index] = Y
-        index=index+1
-        plt.plot(freq,abs(Y),'r')
-        plt.show
-    return freqdata
-
-def filtering(freqdata):
-    filteredData = [[]]*16
-
-    for i in range (16):
-        freq = freqdata[i]
-        nyquistFreq = 100
-        low = g_lowcut / nyquistFreq
-        high = g_highcut / nyquistFreq
-
-        sos = butter(g_order, [low,high], btype = "bandpass", output='sos')
-        filtered = sosfilt(sos, freq)
-
-        filteredData[i] = filtered
-
-    return filteredData
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds, BrainFlowPresets
+from brainflow.data_filter import DataFilter, AggOperations, WaveletTypes, NoiseEstimationLevelTypes, \
+    Wavel
+etExtensionTypes, ThresholdTypes, WaveletDenoisingTypes, WindowOperations, DetrendOperations
 
 
-def plot_filtered_data(filteredData):
-    blockSize = 10
-    for i in range(16):
-        filtered = filteredData[i]
-        Y = np.fft.fft(filtered)/blockSize
-        Y = Y[range(int(blockSize/2))]
-        plt.plot(filtered, abs(Y),'r')
+def getData(length = 15, outputFile = "test"):
+    BoardShim.enable_dev_board_logger()
 
-def array_to_csv(output_file, brainwaves, timepoints):
-    with open(output_file, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
+    params = BrainFlowInputParams()
+    params.serial_port = "/dev/cu.usbmodem11"
+    params.timeout = 30
 
-        # Write the header (timepoints)
-        csv_writer.writerow(timepoints)
+    board_id = BoardIds.GANGLION_BOARD.value
+    board_descr = BoardShim.get_board_descr(board_id)
+    sampling_rate = int(board_descr['sampling_rate'])
+    
+    board = BoardShim(BoardIds.GANGLION_BOARD, params)
+    board.prepare_session()
+    board.start_stream ()
 
-        # Write the data (brainwaves)
-        for i in range(len(brainwaves[0])):
-            row_data = [brainwaves[x][i] for x in range(16)]
-            csv_writer.writerow(row_data)
+    time.sleep(length)
+    nfft = DataFilter.get_nearest_power_of_two(sampling_rate)
+    print(sampling_rate)
+    # data = board.get_current_board_data (256) # get latest 256 packages or less, doesnt remove them from internal buffer
+    data = board.get_board_data()  # get all data and remove it from internal buffer
+    
+    board.stop_stream()
+    board.release_session()
 
-def main():
-    print("start")
-    # Iterate through the CSV file folder and draw separate graphs for each file
-    for filename in os.listdir(g_directory):
-        print("start2")
-        f = os.path.join(g_directory, filename)
+    print(data)
 
-        # Checking if it is the file we are testing
-        if os.path.isfile(f):
-            if filename != "name2score.csv":  # Just one file for testing for now
-                print("Current filepath: " + f)
-                with open(f) as csv_file:
-                    # Plotting the raw data (voltage)
-                    csv_reader = csv.reader(csv_file, delimiter=',')
-                    brainwavesData, timepoints = csv_to_array(csv_reader)
-                    #plot_graph(brainwavesData, timepoints)
 
-                    # Convert the data from voltage to frequency + plotting the graph
-                    freqdata = volts_to_freq(brainwavesData)
+    #denoising
+    eeg_channels = BoardShim.get_eeg_channels(board_id)
+    df = pd.DataFrame(np.transpose(data))
+    plt.figure()
+    df[eeg_channels].plot(subplots=True)
+    plt.savefig('before_processing.png')
 
-                    # Filter the frequency data
-                    filtereddata = filtering(freqdata)
-                    #plot_filtered_data(filtereddata)
+    # dapply different methods to different channels for demo
+    for count, channel in enumerate(eeg_channels):
+        # first try simple moving median or moving average with different window size
+        if count == 0:
+            DataFilter.perform_rolling_filter(data[channel], 3, AggOperations.MEAN.value)
+        elif count == 1:
+            DataFilter.perform_rolling_filter(data[channel], 3, AggOperations.MEDIAN.value)
+        # if methods above dont work, wavelet based denoising
+        else:
+            DataFilter.perform_wavelet_denoising(data[channel], WaveletTypes.BIOR3_9, 3,
+                                                 WaveletDenoisingTypes.SURESHRINK, ThresholdTypes.HARD,
+                                                 WaveletExtensionTypes.SYMMETRIC, NoiseEstimationLevelTypes.FIRST_LEVEL)
 
-                    #save processed data to the same file
-                    output_csv_file = os.path.join(g_directory, "output_"+filename)
-                    array_to_csv(output_csv_file, filtereddata, timepoints)
-                    print(f"Reversed data saved to {output_csv_file}")
+    df = pd.DataFrame(np.transpose(data))
+    plt.figure()
+    df[eeg_channels].plot(subplots=True)
+    plt.savefig('after_processing.png')
 
-if __name__ == "__main__":
-    main()
+
+    eeg_channels = board_descr['eeg_channels']
+
+    #filtering
+
+    rows = [] 
+    with open(f'{outputFile}-bandpower.csv',"w+") as my_csv:
+        csvWriter = csv.writer(my_csv,delimiter=',')
+        row = [] 
+        print(len(data))
+        print(len(data[0]))
+        print(len(eeg_channels))
+        for i in range (len(eeg_channels)):
+            eeg_channel = eeg_channels[i]
+            DataFilter.detrend(data[eeg_channel], DetrendOperations.LINEAR.value)
+            psd = DataFilter.get_psd_welch(data[eeg_channel], nfft, nfft // 2, sampling_rate,
+                                        WindowOperations.BLACKMAN_HARRIS.value)
+
+            #delta (0.5–4 Hz), theta (4–8 Hz), alpha (8–12 Hz), beta (12–30 Hz), and gamma (30–100 Hz)
+            band_power_alpha = DataFilter.get_band_power(psd, 8.0, 12.0)
+            band_power_beta = DataFilter.get_band_power(psd, 14.0, 30.0)
+            band_power_gamma= DataFilter.get_band_power(psd, 30.0, 100.0)
+            band_power_delta = DataFilter.get_band_power(psd, 0.5, 4.0)
+            
+            row.extend([band_power_alpha, band_power_beta, band_power_delta, band_power_gamma])
+        rows.append(row)
+        csvWriter.writerows(rows)
+
+    with open(f"{outputFile}-raw.csv","w+") as my_csv2: 
+        csvWriter = csv.writer(my_csv2,delimiter=',')
+        csvWriter.writerows(data)
+
+
