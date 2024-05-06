@@ -128,6 +128,8 @@ import random as r
 import time
 import torch
 from torch import nn
+
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 # Handy little enum to make code more readable
 
 
@@ -161,39 +163,44 @@ class Recorder:
         self.NUM_CHANNELS = numChannels
 
     def connect(self):
-         # Search for active LSL streams
-        print('Looking for an EEG stream...')
-        streams = resolve_byprop('type', 'EEG', timeout=2)
-        if len(streams) == 0:
-            raise RuntimeError('Can\'t find EEG stream.')
+        # Search for active LSL streams
+        # print('Looking for an EEG stream...')
+        # streams = resolve_byprop('type', 'EEG', timeout=2)
+        # if len(streams) == 0:
+        #     raise RuntimeError('Can\'t find EEG stream.')
 
-        # Set active EEG stream to inlet and apply time correction
-        print("Start acquiring data")
-        inlet = StreamInlet(streams[0], max_buflen= self.BUFFER_LENGTH, max_chunklen=1)
-        eeg_time_correction = inlet.time_correction()
+        params = BrainFlowInputParams()
+        params.serial_port = "/dev/tty.usbserial-DP04WFTR"
+        self.board = BoardShim(BoardIds.CYTON_BOARD, params)
+        self.board.prepare_session()
 
-        # Get the stream info and description
-        info = inlet.info()
-        description = info.desc()
+        # # Set active EEG stream to inlet and apply time correction
+        # print("Start acquiring data")
+        # inlet = StreamInlet(streams[0], max_buflen= self.BUFFER_LENGTH, max_chunklen=1)
+        # eeg_time_correction = inlet.time_correction()
 
-        # Get the sampling frequency
-        # This is an important value that represents how many EEG data points are
-        # collected in a second. This influences our frequency band calculation.
-        # for the Muse 2016, this should always be 256
-        self.fs = int(info.nominal_srate())
-        self.inlet = inlet
+        # # Get the stream info and description
+        # info = inlet.info()
+        # description = info.desc()
 
-        # Initialize raw EEG data buffer
-        self.eeg_buffer = np.zeros((int(fs * self.BUFFER_LENGTH), 1))
-        self.filter_state = None  # for use with the notch filter
+        # # Get the sampling frequency
+        # # This is an important value that represents how many EEG data points are
+        # # collected in a second. This influences our frequency band calculation.
+        # # for the Muse 2016, this should always be 256
+        # self.fs = int(info.nominal_srate())
+        # self.inlet = inlet
 
-        # Compute the number of epochs in "buffer_length"
-        n_win_test = int(np.floor((self.BUFFER_LENGTH - self.EPOCH_LENGTH) /
-                                self.SHIFT_LENGTH + 1))
+        # # Initialize raw EEG data buffer
+        # self.eeg_buffer = np.zeros((int(self.fs * self.BUFFER_LENGTH), 1))
+        # self.filter_state = None  # for use with the notch filter
 
-        # Initialize the band power buffer (for plotting)
-        # bands will be ordered: [delta, theta, alpha, beta]
-        self.band_buffer = np.zeros((n_win_test, 4))
+        # # Compute the number of epochs in "buffer_length"
+        # n_win_test = int(np.floor((self.BUFFER_LENGTH - self.EPOCH_LENGTH) /
+        #                         self.SHIFT_LENGTH + 1))
+
+        # # Initialize the band power buffer (for plotting)
+        # # bands will be ordered: [delta, theta, alpha, beta]
+        # self.band_buffer = np.zeros((n_win_test, 4))
 
     def setUser(self):
         print("Please enter name: ")
@@ -202,6 +209,13 @@ class Recorder:
             os.mkdir(self.name)
 
     def getData(self):
+        self.board.start_stream()
+        BoardShim.log_message(LogLevels.LEVEL_INFO.value, 'start sleeping in the main thread')
+        time.sleep(10)
+        # nfft = DataFilter.get_nearest_power_of_two(sampling_rate)
+        data = self.board.get_board_data()
+        self.board.stop_stream()
+        print(data)
         # clear buffers
         # Play random song from song directory
         # query EEG buffer
@@ -209,22 +223,22 @@ class Recorder:
         # maybe timestamp the data? depends on how bad it is
 
         # Get song from midi dataset
-        dataset_path = 'new-trimmed-midi'
-        genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
-        subgenre = genre + '/' + r.choice(os.listdir(genre))
-        artist = subgenre + '/' + r.choice(os.listdir(subgenre))
-        song = artist + '/' + r.choice(os.listdir(artist))
+        # dataset_path = 'new-trimmed-midi'
+        # genre = dataset_path + '/' + r.choice(os.listdir(dataset_path))
+        # subgenre = genre + '/' + r.choice(os.listdir(genre))
+        # artist = subgenre + '/' + r.choice(os.listdir(subgenre))
+        # song = artist + '/' + r.choice(os.listdir(artist))
 
-        # play song
-        mixer.init()
-        mixer.music.load(song)
-        mixer.music.play()
-        filename = str(round(time.time())) + '.csv'
+        # # play song
+        # mixer.init()
+        # mixer.music.load(song)
+        # mixer.music.play()
+        # filename = str(round(time.time())) + '.csv'
 
-        brainwaves_data = []
-        eeg_data, timestamp = self.inlet.pull_chunk(
-                    timeout=15, max_samples=int(self.SHIFT_LENGTH * self.fs))
-        print(len(eeg_data))
+        # brainwaves_data = []
+        # eeg_data, timestamp = self.inlet.pull_chunk(
+        #             timeout=15, max_samples=int(self.SHIFT_LENGTH * self.fs))
+        # print(len(eeg_data))
         # channel_data = []
         # for INDEX_CHANNEL in range(self.NUM_CHANNELS):
         #     # Only keep the channel we're interested in
@@ -275,5 +289,7 @@ class Recorder:
         #     channel_data.extend([smooth_band_powers[Band.Alpha], smooth_band_powers[Band.Beta], smooth_band_powers[Band.Theta],smooth_band_powers[Band.Delta]])
         # brainwaves_data.append(channel_data)
 
-
+r = Recorder(numChannels=16)
+r.connect()
+r.getData()
 
