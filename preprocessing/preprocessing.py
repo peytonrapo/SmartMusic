@@ -1,4 +1,5 @@
 import time
+import datetime
 import csv
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ class EEGDataProcessor:
         self.board_descr = BoardShim.get_board_descr(board_id)
         self.sampling_rate = int(self.board_descr['sampling_rate'])
 
-        self.board = BoardShim(BoardIds.CYTON_DAISY_BOARD, params)
+        self.board = BoardShim(board_id, params)
 
         print(self.board_descr['eeg_channels'])
 
@@ -80,11 +81,14 @@ class EEGDataProcessor:
     def end_session(self):
         self.board.release_session()
 
-    def save_data(self, data, output_file="test"):
-        with open(f'{output_file}-bandpower.csv', "w+") as my_csv:
+    def save_data(self, data, output_file="test.csv"):
+        if len(data.shape) == 1:
+            data = data.reshape(-1, 4)
+
+        with open(output_file, "w+") as my_csv:
             csv_writer = csv.writer(my_csv, delimiter=',')
             csv_writer.writerows(data)
 
-        with open(f"{output_file}-raw.csv", "w+") as my_csv2:
-            csv_writer = csv.writer(my_csv2, delimiter=',')
-            csv_writer.writerows(data)
+        # with open(f"{output_file}-raw.csv", "w+") as my_csv2:
+        #     csv_writer = csv.writer(my_csv2, delimiter=',')
+        #     csv_writer.writerows(data)
