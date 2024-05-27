@@ -1,25 +1,26 @@
 import numpy as np
-from xgboost import XGBClassifier, XGBRegressor
+from xgboost import XGBClassifier
 
-class EEGEnjoymentRegressor:
+class EEGEnjoymentClassifier:
   """
   A class for predicting enjoyment levels using XGBoost regression based on EEG features.
   """
   def __init__(self):
     # Define model parameters (adjust as needed)
-    #self.model = XGBRegressor(n_estimators = 2, learning_rate = 0.3, max_depth = 5, objective = 'reg:squarederror')
     self.model = XGBClassifier(n_estimators = 2, learning_rate = 0.3, max_depth = 5, objective = 'binary:logistic')
     self.X_train_history = None
     self.y_train_history = None 
     
   def fit(self, X_train, y_train = None):
     """
-    Train the XGBoost model on EEG data (X) and enjoyment levels (y).
+    Train the XGBoost model on EEG data (X) and optionally enjoyment levels (y).
+    If y is not given (i.e. post calibration), then it will self-classify the X for training purposes
+    and assume it has the ground truth
 
     Args:
-      X: A numpy array of shape (n_samples, 5) where each row represents an EEG sample
-        with features (delta, theta, alpha, sigma, beta).
-      y: A numpy array of shape (n_samples,) containing enjoyment levels (continuous values 0-1).
+      X: A numpy array of shape (n_samples, n_features) where each row represents an EEG sample
+        with likely features (delta, theta, alpha, sigma, beta).
+      y: A numpy array of shape (n_samples,) containing enjoyment levels (binary values).
     """
     # If y_train is not provided, use classifyData to generate labels
     # Implicitly assumes 1 datapoint
